@@ -10,6 +10,7 @@ import (
 
 func TestRabbit(t *testing.T) {
 	var key []byte
+	var iv []byte
 	var err error
 
 	r := newRabbit()
@@ -22,6 +23,14 @@ func TestRabbit(t *testing.T) {
 	require.Equal(t, "88E8D815C59C0C397B696C4789C68AA7", encodeOSstring(r.keyStream()), "keyStream should return the proper test vector values")
 	require.Equal(t, "F416A1C3700CD451DA68D1881673D696", encodeOSstring(r.keyStream()), "keyStream should return the proper test vector values")
 
+	iv, err = decodeOSstring("00 00 00 00 00 00 00 00")
+	require.NoError(t, err, "hex decode iv")
+
+	require.NoError(t, r.setupIV(iv), "setupIV should not error with a valid IV")
+	require.Equal(t, "C6A7275EF85495D87CCD5D376705B7ED", encodeOSstring(r.keyStream()), "keyStream should return the proper test vector values")
+	require.Equal(t, "5F29A6AC04F5EFD47B8F293270DC4A8D", encodeOSstring(r.keyStream()), "keyStream should return the proper test vector values")
+	require.Equal(t, "2ADE822B29DE6C1EE52BDB8A47BF8F66", encodeOSstring(r.keyStream()), "keyStream should return the proper test vector values")
+
 	key, err = decodeOSstring("91 28 13 29 2E 3D 36 FE 3B FC 62 F1 DC 51 C3 AC")
 	require.NoError(t, err, "hex decode key")
 
@@ -29,6 +38,14 @@ func TestRabbit(t *testing.T) {
 	require.Equal(t, "3D2DF3C83EF627A1E97FC38487E2519C", encodeOSstring(r.keyStream()), "keyStream should return the proper test vector values")
 	require.Equal(t, "F576CD61F4405B8896BF53AA8554FC19", encodeOSstring(r.keyStream()), "keyStream should return the proper test vector values")
 	require.Equal(t, "E5547473FBDB43508AE53B20204D4C5E", encodeOSstring(r.keyStream()), "keyStream should return the proper test vector values")
+
+	iv, err = decodeOSstring("C3 73 F5 75 C1 26 7E 59")
+	require.NoError(t, err, "hex decode iv")
+
+	require.NoError(t, r.setupIV(iv), "setupIV should not error with a valid IV")
+	require.Equal(t, "1FCD4EB9580012E2E0DCCC9222017D6D", encodeOSstring(r.keyStream()), "keyStream should return the proper test vector values")
+	require.Equal(t, "A75F4E10D12125017B2499FFED936F2E", encodeOSstring(r.keyStream()), "keyStream should return the proper test vector values")
+	require.Equal(t, "EBC112C393E738392356BDD012029BA7", encodeOSstring(r.keyStream()), "keyStream should return the proper test vector values")
 
 	key, err = decodeOSstring("83 95 74 15 87 E0 C7 33 E9 E9 AB 01 C0 9B 00 43")
 	require.NoError(t, err, "hex decode key")

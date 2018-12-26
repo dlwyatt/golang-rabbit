@@ -15,15 +15,18 @@ type Rabbit interface {
 }
 
 type rabbit struct {
-	x [8]uint32
-	c [8]uint32
-	b byte
+	x       [8]uint32
+	masterX [8]uint32
+	c       [8]uint32
+	masterC [8]uint32
+	b       byte
+	masterB byte
 
 	keySetupCalled bool
 }
 
 func New() Rabbit {
-	return &rabbit{}
+	return newRabbit()
 }
 
 func newRabbit() *rabbit {
@@ -42,6 +45,10 @@ func (r *rabbit) setupIV(iv []byte) error {
 	if len(iv) != 8 {
 		return errors.New("iv must be 8 bytes")
 	}
+
+	copy(r.x[0:8], r.masterX[0:8])
+	copy(r.c[0:8], r.masterC[0:8])
+	r.b = r.masterB
 
 	var siv [4]uint16
 	for i := 0; i < 4; i++ {
@@ -70,8 +77,8 @@ func (r *rabbit) setupKey(key []byte) error {
 		return errors.New("key must be 16 bytes")
 	}
 
-	r.keySetupCalled = true
 	r.reset()
+	r.keySetupCalled = true
 
 	var k [8]uint16
 	for i := 0; i < 8; i++ {
@@ -110,6 +117,10 @@ func (r *rabbit) setupKey(key []byte) error {
 	r.c[6] ^= r.x[2]
 	r.c[7] ^= r.x[3]
 
+	copy(r.masterX[0:8], r.x[0:8])
+	copy(r.masterC[0:8], r.c[0:8])
+	r.masterB = r.b
+
 	return nil
 }
 
@@ -117,19 +128,35 @@ func (r *rabbit) reset() {
 	for i := 0; i < 8; i++ {
 		r.x[i] = 0
 		r.c[i] = 0
+		r.masterX[i] = 0
+		r.masterC[i] = 0
 	}
 
 	r.b = 0
+	r.masterB = 0
 	r.keySetupCalled = false
 
 	return
+}
+
+func gfunc(x uint32) uint32 {
+	a := x & 0xFFFF
+	b := x >> 16
+	h := (((uint32(a*a) >> 17) + uint32(a*b)) >> 15) + b*b
+	l := x * x
+
+	return uint32(h ^ l)
 }
 
 func (r *rabbit) nextState() {
 	var t uint64
 	for i := 0; i < 8; i++ {
 		t = uint64(r.c[i]) + uint64(a[i]) + uint64(r.b)
-		r.b = byte((t >> 32) & 0x1)
+		r.b = 0
+		if byte(t>>32) > 0 {
+			r.b = 1
+		}
+
 		r.c[i] = uint32(t & 0xFFFFFFFF)
 	}
 
@@ -137,7 +164,7 @@ func (r *rabbit) nextState() {
 	for i := 0; i < 8; i++ {
 		t = (uint64(r.x[i]) + uint64(r.c[i])) & 0xFFFFFFFF
 		t *= t
-		g[i] = uint32((t & 0xFFFFFFFF) ^ t>>32)
+		g[i] = uint32(t&0xFFFFFFFF) ^ uint32((t>>32)&0xFFFFFFFF)
 	}
 
 	r.x[0] = uint32((uint64(g[0]) + uint64(bits.RotateLeft32(g[7], 16)) + uint64(bits.RotateLeft32(g[6], 16))) & 0xFFFFFFFF)
